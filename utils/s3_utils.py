@@ -1,7 +1,5 @@
 import boto3
 import logging
-
-import pandas as pd
 from botocore.exceptions import NoCredentialsError, ClientError
 
 
@@ -24,10 +22,11 @@ def does_file_exist_in_s3(s3_client, bucket: str, key: str) -> bool:
         return True
 
     except ClientError as e:
-        if e.response["Error"]["Code"] == "404":
+        error_code = e.response["Error"]["Code"]
+        if error_code == "404":
             logger.info(f"❌ File: {key} doesn't exist in bucket: {bucket}.")
             return False
-        logger.error(f"Error checking file existence: {e}")
+        logger.error(f"Error checking file existence: {e}, error_code = {error_code}")
         return False
 
 
