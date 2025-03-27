@@ -9,18 +9,66 @@ import requests
 from io import  StringIO
 import pandas as pd
 import boto3
+from scraper_constants import ScraperConstants as sc
+from boto3.exceptions import Boto3Error
+from utils.s3_utils import does_file_exist_in_s3
 
-def download_epl_data_from_football_data_by_season(season_start: str, season_end: str)-> pd.DataFrame:
+
+def download_epl_data_from_football_data_by_season(season: str, s3_client):
     """
-    The season_start and season_end will be converted into the concatenation of last 2 years of season start and season
-    end (2223, 2324 etc). A request will be made to download the resource. If the resource is not downloaded
-    successfully, it will try 2 more times before quitting. If successful, it will convert the request to csv and
-    download the file to the S3 bucket
+    1) The season will be formatted into the concatenation of last 2 years of season start and season
+    end (2223, 2324 etc). A request will be made to download the resource.
+    2) A check will be performed to see if the file already exists, if it does not the script will continue. Since the
+    data in these files are static, it wont be necessary to download them multiple times
+    3) Send http request for the file save as a pandas dataframe, then convert the dataframe to csv
+    4) Save the file to the S3 bucket specified
 
-    :param season_start: The string representation of the season start
-    :param season_end: The string representation of the season end
-    :return: A dataframe containing the data for the specified seaoson
+    :param season: The string representation of the season
+    :param s3_client: The instance of the S3 bucket the file will be downloaded to
     """
 
+    url = sc.FOOTBALL_DATA_URL.format(season=season)
 
-    return season
+    try:
+        # Download the season data and raise error for non-200 response
+        response = requests.get(url)
+        response.raise_for_status()
+
+        bucket = sc.S3_BUCKET_NAME
+        key = sc.FOOTBALL_DATA_S3_FILE_KEY.format(season=season)
+
+        # Check if the file already exists in S3
+        if does_file_exist_in_s3(s3_client=s3_client, bucket=bucket, key=key):
+            return
+        else:
+            # Upload to S3 as a csv File
+            s3_client.put_object(
+                Bucket=sc.S3_BUCKET_NAME,
+                Key=sc.FOOTBALL_DATA_S3_FILE_KEY.format(season=season),
+                Body=response.text,
+                ContentType = "text/csv"
+            )
+            print(f"✅ File successfully uploaded to s3://{sc.S3_BUCKET_NAME}/{sc.FOOTBALL_DATA_S3_FILE_KEY.format(season=season)}")
+
+
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Failed to download file: {e}")
+    except Boto3Error as e:
+        print(f"❌ S3 upload failed: {e}")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+
+def download_all_epl_data():
+    pass
+
+
+
+if __name__ == '__main__':
+    # Initialize S3 client
+    s3 = boto3.client("s3")
+
+
+
+
+
+
