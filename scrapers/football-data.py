@@ -115,16 +115,5 @@ if __name__ == '__main__':
 
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
-    credentials = session.get_credentials()
 
-    download_football_data_in_range(s3)
-
-    try:
-        response = s3.list_buckets()
-        print("S3 Buckets:")
-        for bucket in response['Buckets']:
-            print(f"- {bucket['Name']}")
-    except Exception as e:
-        print(f"❌ Error interacting with S3: {e}")
-
-
+    download_football_data_in_range(s3, "2223")
