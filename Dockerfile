@@ -10,5 +10,7 @@ COPY . /app/
 # Install any dependencies if needed
 RUN pip install -r requirements.txt
 
+ENV PYTHONPATH=/app
+
 ENTRYPOINT ["python"]
 CMD ["/app/scrapers/football-data.py"]
