@@ -99,7 +99,6 @@ def download_football_data_in_range(s3_client, start_season="9394", end_season="
             end_season_reached = True
             print(f"End season reached, exiting loop")
         count += 1
-
         if count > 40:
             print("Iterations have exceeded number of seasons, exiting loop")
             break

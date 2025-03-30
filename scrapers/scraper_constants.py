@@ -7,3 +7,17 @@ class ScraperConstants(object):
     # football-data.o.uk
     FOOTBALL_DATA_URL = "https://www.football-data.co.uk/mmz4281/{season}/E0.csv"
     FOOTBALL_DATA_S3_FILE_KEY = "raw_football_data_{season}"
+
+    # fbref.com
+    FBREF_URL = "https://fbref.com/en/comps/9/{season}/{season}-Premier-League-Stats"
+
+    NATION = "nation"
+    # POS
+    # AGE
+    # MIN
+    # GLS
+    # AST
+    # PK
+    # PKAT
+    # SH
+    # SoT
