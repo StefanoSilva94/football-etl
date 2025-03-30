@@ -31,18 +31,37 @@ def scrape_team_player_data(soup: BeautifulSoup, team: str) -> pd.DataFrame:
     :param team: The name of the team to identify which table to scrape
     :return: Pandas dataframe with the data from the teams table
     """
+    # Initialise empty df and empty data dict
+    df = pd.DataFrame
+    data = {}
+
     # List of the table tabs
     table_tabs = ["summary", "passing", "passing_types", "defense", "possession", "misc"]
     table_header = soup.find("h2", string=f"{team} Player Stats")
+
+    # Add the data from each tab in the table to the data-dict - older match reports won't have multiple tabs
     for tab in table_tabs:
         try:
             table_rows = (table_header
                           .find_next("table", class_="stats_table", id=lambda x: x and x.endswith(tab))
-                          .find_next("tbody"))
+                          .find_next("tbody")).find_all("tr")
 
+            if table_rows:
+                for row in table_rows:
+                    # Get a list of all the cells in the row
+                    table_cells = row.find_all(["th", "td"])
+                    for cell in table_cells:
+                        col = cell["data-stat"]
+                        value = cell.get_text(strip=True)
+                        if col not in data:
+                            data[col] = []
+                        data[col].append(value)
+
+                    df = pd.DataFrame(data)
 
         except Exception as e:
             print(f"Couldn't find element for {tab}, error: {e}")
+    print(data)
 
 
 def get_team_name_from_match_report(soup: BeautifulSoup) -> [str]:
@@ -96,5 +115,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    # scrape_match_report_data("https://fbref.com/en/matches/3a6836b4/Burnley-Manchester-City-August-11-2023-Premier-League")
-    scrape_match_report_data("https://fbref.com/en/matches/15ef0a23/Chelsea-Hull-City-August-15-2009-Premier-League")
+    scrape_match_report_data("https://fbref.com/en/matches/3a6836b4/Burnley-Manchester-City-August-11-2023-Premier-League")
+    # scrape_match_report_data("https://fbref.com/en/matches/15ef0a23/Chelsea-Hull-City-August-15-2009-Premier-League")
