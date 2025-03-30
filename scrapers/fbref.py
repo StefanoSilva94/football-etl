@@ -32,7 +32,7 @@ def scrape_team_player_data(soup: BeautifulSoup, team: str) -> pd.DataFrame:
     :return: Pandas dataframe with the data from the teams table
     """
     # List of the table tabs
-    table_tabs = ["summary", "passing", "passing_types", "defensive_actions", "possession", "misc"]
+    table_tabs = ["summary", "passing", "passing_types", "defense", "possession", "misc"]
     table_header = soup.find("h2", string=f"{team} Player Stats")
     for tab in table_tabs:
         try:
@@ -43,11 +43,6 @@ def scrape_team_player_data(soup: BeautifulSoup, team: str) -> pd.DataFrame:
 
         except Exception as e:
             print(f"Couldn't find element for {tab}, error: {e}")
-            try:
-                if tab == "summary":
-                    table_rows = table_header.find_next("tbody")
-            except Exception as e:
-                print(f"Couldn't find element for {tab}, error: {e}")
 
 
 def get_team_name_from_match_report(soup: BeautifulSoup) -> [str]:
@@ -61,6 +56,17 @@ def get_team_name_from_match_report(soup: BeautifulSoup) -> [str]:
 
 
 def scrape_match_report_data(match_url: str) -> Type[DataFrame]:
+    """
+    Scrapes the match data from the match report for each player
+    1) Extract the team names and date from the header
+    2) Extract data for home team players
+    3) Extract data for home team goalkeeper
+    4) Extract data for the away team players
+    5) Extract data for away team goalkeeper
+    6) Concatenate the dataframes
+    :param match_url: the url for the match report on fbref.com
+    :return: A dataframe containing all the data for players on both teams
+    """
     df = pd.DataFrame
     try:
         response = requests.get(match_url)
@@ -90,6 +96,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    scrape_match_report_data(
-        "https://fbref.com/en/matches/3a6836b4/Burnley-Manchester-City-August-11-2023-Premier-League")
-    # scrape_match_report_data("https://fbref.com/en/matches/15ef0a23/Chelsea-Hull-City-August-15-2009-Premier-League")
+    # scrape_match_report_data("https://fbref.com/en/matches/3a6836b4/Burnley-Manchester-City-August-11-2023-Premier-League")
+    scrape_match_report_data("https://fbref.com/en/matches/15ef0a23/Chelsea-Hull-City-August-15-2009-Premier-League")
