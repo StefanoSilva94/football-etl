@@ -1,4 +1,6 @@
 import os
+from typing import Type
+
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -7,6 +9,7 @@ from datetime import datetime
 import json
 import logging
 
+from pandas import DataFrame
 
 
 def scrape_gk_data():
@@ -17,7 +20,7 @@ def scrape_core_match_stats():
     pass
 
 
-def scrape_team_player_data(soup: str, team: str) -> pd.DataFrame:
+def scrape_team_player_data(soup: BeautifulSoup, team: str) -> pd.DataFrame:
     """
     Scrape the player data for a specified team. Iterates through all tabs on the tables and extracts all their data
     1) Locates the header for the teams table.
@@ -34,8 +37,8 @@ def scrape_team_player_data(soup: str, team: str) -> pd.DataFrame:
     for tab in table_tabs:
         try:
             table_rows = (table_header
-                              .find_next("table", class_="stats_table", id=lambda x: x and x.endswith(tab))
-                              .find_next("tbody"))
+                          .find_next("table", class_="stats_table", id=lambda x: x and x.endswith(tab))
+                          .find_next("tbody"))
 
 
         except Exception as e:
@@ -47,19 +50,18 @@ def scrape_team_player_data(soup: str, team: str) -> pd.DataFrame:
                 print(f"Couldn't find element for {tab}, error: {e}")
 
 
+def get_team_name_from_match_report(soup: BeautifulSoup) -> [str]:
+    header = soup.find('h1').get_text()
+    team_split = header.split('vs.')
 
-def scrape_match_report_data(match_url: str) -> pd.DataFrame:
+    home_team = team_split[0].strip()
+    away_team = team_split[1].split('Match Report')[0].strip()
 
-    # First extract home team, away team, game week and date
-    # home_team, away_team, gw, date = scrape_core_match_stats()
+    return [home_team, away_team]
 
-    # Scrape home team data
-    # scrape_gk_data()
 
-    # Scrape away team data
-    # scrape_team_player_data()
-    # scrape_gk_data()
-
+def scrape_match_report_data(match_url: str) -> Type[DataFrame]:
+    df = pd.DataFrame
     try:
         response = requests.get(match_url)
         if response.status_code != 200:
@@ -71,22 +73,23 @@ def scrape_match_report_data(match_url: str) -> pd.DataFrame:
 
         soup = BeautifulSoup(response.content, 'html.parser')
 
-        scrape_team_player_data(soup, "Burnley")
-
+        # First extract home team, away team, game week and date
+        home_team, away_team = get_team_name_from_match_report(soup)
+        home_team_data = scrape_team_player_data(soup, home_team)
+        away_team_data = scrape_team_player_data(soup, away_team)
 
     except requests.exceptions.RequestException as e:
-        logging.error(f"❌ Failed to download file: {e}")
-        return
+        logging.error(f"❌ Failed to access match report: {e}")
+        return df
     except Exception as e:
         logging.error(f"❌ Unexpected error: {e}")
-        return
-
-
+        return df
 
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    # scrape_match_report_data("https://fbref.com/en/matches/3a6836b4/Burnley-Manchester-City-August-11-2023-Premier-League")
-    scrape_match_report_data("https://fbref.com/en/matches/15ef0a23/Chelsea-Hull-City-August-15-2009-Premier-League")
+    scrape_match_report_data(
+        "https://fbref.com/en/matches/3a6836b4/Burnley-Manchester-City-August-11-2023-Premier-League")
+    # scrape_match_report_data("https://fbref.com/en/matches/15ef0a23/Chelsea-Hull-City-August-15-2009-Premier-League")
