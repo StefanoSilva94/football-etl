@@ -9,7 +9,8 @@ class ScraperConstants(object):
     FOOTBALL_DATA_S3_FILE_KEY = "raw_football_data_{season}"
 
     # fbref.com
-    FBREF_URL = "https://fbref.com/en/comps/9/{season}/{season}-Premier-League-Stats"
+    FBREF_URL = "https://fbref.com/en/comps/9/{year}-{next_year}/schedule/{year}-{next_year}-Premier-League-Scores-and-Fixtures"
+
 
     NATION = "nation"
     # POS
