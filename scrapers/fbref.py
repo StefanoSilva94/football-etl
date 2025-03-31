@@ -32,36 +32,63 @@ def scrape_team_player_data(soup: BeautifulSoup, team: str) -> pd.DataFrame:
     :return: Pandas dataframe with the data from the teams table
     """
     # Initialise empty df and empty data dict
-    df = pd.DataFrame
-    data = {}
+    df = pd.DataFrame()
 
     # List of the table tabs
     table_tabs = ["summary", "passing", "passing_types", "defense", "possession", "misc"]
     table_header = soup.find("h2", string=f"{team} Player Stats")
 
+    # Dict to store player data in
+    data_dict = {}
     # Add the data from each tab in the table to the data-dict - older match reports won't have multiple tabs
     for tab in table_tabs:
         try:
-            table_rows = (table_header
-                          .find_next("table", class_="stats_table", id=lambda x: x and x.endswith(tab))
-                          .find_next("tbody")).find_all("tr")
 
-            if table_rows:
-                for row in table_rows:
-                    # Get a list of all the cells in the row
-                    table_cells = row.find_all(["th", "td"])
-                    for cell in table_cells:
-                        col = cell["data-stat"]
-                        value = cell.get_text(strip=True)
-                        if col not in data:
-                            data[col] = []
-                        data[col].append(value)
+            table = table_header.find_next("table", class_="stats_table", id=lambda x: x and x.endswith(tab))
 
-                    df = pd.DataFrame(data)
+            if not table:
+                logger.info(f"No table found for {tab}. Skipping...")
+                continue
+
+            table_body = table.find("tbody")
+            table_rows = table_body.find_all("tr") if table_body else []
+
+            for row in table_rows:
+                # Get a list of all the cells in the row
+                table_cells = row.find_all(["th", "td"])
+                if not table_cells:
+                    continue
+
+                # Extract player name from the first column
+                player_name = row.find(["th", "td"], {"data-stat": "player"}).get_text(strip=True)
+
+                if not player_name:
+                    logger.info(f"No player name found for {tab}. Skipping...")
+
+                # Initialize player dict if not in data_dict
+                if player_name not in data_dict:
+                    data_dict[player_name] = {}
+
+
+                for cell in table_cells:
+                    col = cell["data-stat"]
+                    value = cell.get_text(strip=True)
+
+                    # Ignore player column since it is added as a key
+                    if col == "player":
+                        continue
+                    # Store the col value pair in the player data dict if it does not exist already
+                    elif col not in data_dict[player_name] or not data_dict[player_name][col]:
+                        data_dict[player_name][col] = value
 
         except Exception as e:
             print(f"Couldn't find element for {tab}, error: {e}")
-    print(data)
+
+    # Convert dictionary to DataFrame
+    df = pd.DataFrame.from_dict(data_dict, orient="index").reset_index()
+    df.rename(columns={"index": "player"}, inplace=True)
+
+    return df
 
 
 def get_team_name_from_match_report(soup: BeautifulSoup) -> [str]:
@@ -102,6 +129,7 @@ def scrape_match_report_data(match_url: str) -> Type[DataFrame]:
         home_team, away_team = get_team_name_from_match_report(soup)
         home_team_data = scrape_team_player_data(soup, home_team)
         away_team_data = scrape_team_player_data(soup, away_team)
+        return df
 
     except requests.exceptions.RequestException as e:
         logging.error(f"❌ Failed to access match report: {e}")
