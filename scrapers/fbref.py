@@ -173,10 +173,10 @@ def update_dataframe_with_watermark_columns(row, match_df, columns):
 def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
     """
     This will scrape all data on the fbref scores and fixtures section for a premier league season.
-    It will scrape all data withing
+    It will scrape all data within each match report and save it as a csv file to an S3 bucket
     :param season: Season to scrape data from
-    :param start_date: start date to scrape data from (inclusive)
-    :param end_date: end date ti scrape data from (inclusive)
+    :param start_date: start date to scrape data from (inclusive) (In the format YYYY-MM-DD)
+    :param end_date: end date t0 scrape data from (inclusive) (In the format YYYY-MM-DD)
     :return:
     """
     logger.info(f"Starting scraper for season: {season} - {season + 1}")
@@ -204,6 +204,11 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                 logger.info(f"Starting scraper for row: {count}")
                 # Extract date and match url
                 date_str = row.find("td", {"data-stat": "date"}).get_text(strip=True)
+
+                # Update start_date if not specified to be used in the file name
+                if not start_date:
+                    start_date = date_str
+
                 match_report_link = row.find("td", {"data-stat": "match_report"}).find("a")
 
                 # Skip if no match report available
@@ -247,7 +252,8 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                 logging.error(f"⚠️ Error processing row: {e}")
                 continue
         all_matches_df = pd.concat(all_matches, ignore_index=True) if all_matches else df
-        all_matches_df.to_csv(f"season - {start_date}: {date_str}")
+        all_matches_df.to_csv(f"season - {start_date}: {date_str}", index=False)
+
         return pd.concat(all_matches, ignore_index=True) if all_matches else df
 
     except requests.exceptions.RequestException as e:
@@ -265,6 +271,6 @@ if __name__ == '__main__':
 
     args = sys.argv
 
-    # scrape_data_in_date_range(2022)
-    scrape_match_report_data("https://fbref.com/en/matches/1ac96eb4/Newcastle-United-Nottingham-Forest-August-6-2022-Premier-League")
+    scrape_data_in_date_range(2022)
+    # scrape_match_report_data("https://fbref.com/en/matches/1ac96eb4/Newcastle-United-Nottingham-Forest-August-6-2022-Premier-League")
     # scrape_match_report_data("https://fbref.com/en/matches/15ef0a23/Chelsea-Hull-City-August-15-2009-Premier-League")

@@ -10,15 +10,3 @@ class ScraperConstants(object):
 
     # fbref.com
     FBREF_URL = "https://fbref.com/en/comps/9/{year}-{next_year}/schedule/{year}-{next_year}-Premier-League-Scores-and-Fixtures"
-
-
-    NATION = "nation"
-    # POS
-    # AGE
-    # MIN
-    # GLS
-    # AST
-    # PK
-    # PKAT
-    # SH
-    # SoT
