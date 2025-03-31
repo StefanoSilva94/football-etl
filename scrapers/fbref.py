@@ -252,7 +252,7 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                 logging.error(f"⚠️ Error processing row: {e}")
                 continue
         all_matches_df = pd.concat(all_matches, ignore_index=True) if all_matches else df
-        all_matches_df.to_csv(f"season - {start_date}: {date_str}", index=False)
+        all_matches_df.to_csv(f"season - {start_date}: {date_str}.csv", index=False)
 
         return pd.concat(all_matches, ignore_index=True) if all_matches else df
 
