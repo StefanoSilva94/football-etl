@@ -115,4 +115,4 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    download_football_data_in_range(s3, "2223")
+    download_football_data_in_range(s3, "2324")

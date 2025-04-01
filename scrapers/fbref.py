@@ -1,5 +1,7 @@
 from datetime import datetime
 import sys
+
+import boto3
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -7,6 +9,7 @@ import time
 import logging
 from pandas import DataFrame
 from scraper_constants import ScraperConstants as sc
+from utils.s3_utils import save_data_to_s3_bucket_as_csv, rename_file_in_s3
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -252,7 +255,7 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                 logging.error(f"⚠️ Error processing row: {e}")
                 continue
         all_matches_df = pd.concat(all_matches, ignore_index=True) if all_matches else df
-        all_matches_df.to_csv(f"season - {start_date}: {date_str}.csv", index=False)
+        save_data_to_s3_bucket_as_csv(s3, all_matches_df,  sc.S3_BUCKET_NAME, sc.FBREF_DATA_S3_FILE_KEY, start_date=start_date, end_date=date_str)
 
         return pd.concat(all_matches, ignore_index=True) if all_matches else df
 
@@ -268,9 +271,17 @@ if __name__ == '__main__':
     """
     Scrape the data in the match report within date range specified
     """
+    # Create boto3 session
+    session = boto3.Session(profile_name=sc.PROFILE_NAME)
+
+    # Initialize S3 client
+    s3 = session.client('s3')
 
     args = sys.argv
 
-    scrape_data_in_date_range(2022)
-    # scrape_match_report_data("https://fbref.com/en/matches/1ac96eb4/Newcastle-United-Nottingham-Forest-August-6-2022-Premier-League")
-    # scrape_match_report_data("https://fbref.com/en/matches/15ef0a23/Chelsea-Hull-City-August-15-2009-Premier-League")
+    # season_df = scrape_data_in_date_range(2022)
+
+
+    old_key = f"raw_football_data_9900"
+    new_key = old_key + ".csv"
+    rename_file_in_s3(s3, sc.S3_BUCKET_NAME, old_key, new_key)

@@ -6,7 +6,8 @@ class ScraperConstants(object):
 
     # football-data.o.uk
     FOOTBALL_DATA_URL = "https://www.football-data.co.uk/mmz4281/{season}/E0.csv"
-    FOOTBALL_DATA_S3_FILE_KEY = "raw_football_data_{season}"
+    FOOTBALL_DATA_S3_FILE_KEY = "raw_football_data_{season}.csv"
 
     # fbref.com
     FBREF_URL = "https://fbref.com/en/comps/9/{year}-{next_year}/schedule/{year}-{next_year}-Premier-League-Scores-and-Fixtures"
+    FBREF_DATA_S3_FILE_KEY = "raw_fbref_data_{start_date}_{end_date}.csv"
