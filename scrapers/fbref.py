@@ -280,8 +280,3 @@ if __name__ == '__main__':
     args = sys.argv
 
     # season_df = scrape_data_in_date_range(2022)
-
-
-    old_key = f"raw_football_data_9900"
-    new_key = old_key + ".csv"
-    rename_file_in_s3(s3, sc.S3_BUCKET_NAME, old_key, new_key)
