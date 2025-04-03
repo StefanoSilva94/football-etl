@@ -8,7 +8,7 @@ import pandas as pd
 import time
 import logging
 from pandas import DataFrame
-from scraper_constants import ScraperConstants as sc
+from scrapers.scraper_constants import ScraperConstants as sc
 from utils.s3_utils import save_data_to_s3_bucket_as_csv, rename_file_in_s3
 
 logging.basicConfig(level=logging.INFO)
@@ -39,7 +39,7 @@ def scrape_team_player_data(soup: BeautifulSoup, team: str, home_or_away: str) -
     if home_or_away == "home":
         table_header = table_headers[0]
     else:
-        table_header = table_headers[1]
+        table_header = table_headers[-1]
 
     # Dict to store player data in
     data_dict = {}
@@ -279,4 +279,4 @@ if __name__ == '__main__':
 
     args = sys.argv
 
-    # season_df = scrape_data_in_date_range(2022)
+    season_df = scrape_data_in_date_range(2022)
