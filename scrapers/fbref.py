@@ -14,10 +14,6 @@ from utils.s3_utils import save_data_to_s3_bucket_as_csv, rename_file_in_s3
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def scrape_core_match_stats():
-    pass
-
-
 def scrape_team_player_data(soup: BeautifulSoup, team: str, home_or_away: str) -> pd.DataFrame:
     """
     Scrape the player data for a specified team. Iterates through all tabs on the tables and extracts all their data
