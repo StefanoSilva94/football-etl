@@ -5,3 +5,4 @@ terraform/.terraform/
 *.tfstate.backup
 .terraform.lock.hcl
 *.csv
+*.DS_Store
