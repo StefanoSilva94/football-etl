@@ -9,7 +9,7 @@ import requests
 import boto3
 from scraper_constants import ScraperConstants as sc
 from boto3.exceptions import Boto3Error
-from utils.s3_utils import does_file_exist_in_s3
+from utils.s3_utils import does_file_exist_in_s3, is_running_in_aws
 import logging
 
 
@@ -106,8 +106,14 @@ def download_football_data_in_range(s3_client, start_season="9394", end_season="
 
 
 if __name__ == '__main__':
+    # Get env variable:
+    env = is_running_in_aws()
+
     # Create boto3 session
-    session = boto3.Session(profile_name=sc.PROFILE_NAME)
+    if env == "local":
+        session = boto3.Session(profile_name=sc.PROFILE_NAME)
+    else:
+        session = boto3.Session()
 
     # Initialize S3 client
     s3 = session.client('s3')
@@ -115,4 +121,5 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger(__name__)
 
-    download_football_data_in_range(s3, "2324")
+    # download_football_data_in_range(s3, "2324")
+    print("Hello football data!")

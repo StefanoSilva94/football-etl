@@ -1,14 +1,25 @@
-import boto3
 import logging
-from botocore.exceptions import NoCredentialsError, ClientError
-from scrapers.scraper_constants import ScraperConstants as sc
-import pandas as pd
+from botocore.exceptions import ClientError
 from io import StringIO
-
+import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+def is_running_in_aws() -> str:
+    """
+    If running in AWS, enviornment variable needs to be set for APP_ENV = 'AWS', if running in AWS
+    If no result is returned, it defaults to 'local'
+    Note: set the env variable when launching for various jobs:
+        1) Lambda: in the function configuration under “Environment variables”
+        2) Fargate (ECS): in the task definition → containerDefinitions → environment
+        3) EC2: in your startup script, or via .bashrc / .bash_profile
+        4) Glue: pass it in via job parameters and read them in Spark
+        5) Docker locally: set via docker run -e APP_ENV=local
+    :return: string representation of the enviornment ('aws' or 'local')
+    """
+    return os.getenv('APP_ENV', 'local')
 
 def does_file_exist_in_s3(s3_client, bucket: str, key: str) -> bool:
     """

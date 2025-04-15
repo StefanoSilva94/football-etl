@@ -1,24 +1,24 @@
 # This is a sample Python script.
 import boto3
 from scrapers.scraper_constants import ScraperConstants as sc
-from utils.s3_utils import rename_file_in_s3
+from utils.s3_utils import rename_file_in_s3, is_running_in_aws
 
 
 # Press ⌃R to execute it or replace it with your code.
 # Press Double ⇧ to search everywhere for classes, files, tool windows, actions, and settings.
 
-
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press ⌘F8 to toggle the breakpoint.
-
-
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    print_hi('PyCharm')
+    print('Hello World')
+
+    # Get env variable:
+    env = is_running_in_aws()
 
     # Create boto3 session
-    session = boto3.Session(profile_name=sc.PROFILE_NAME)
+    if env == "local":
+        session = boto3.Session(profile_name=sc.PROFILE_NAME)
+    else:
+        session = boto3.Session()
 
     # Initialize S3 client
     s3 = session.client('s3')

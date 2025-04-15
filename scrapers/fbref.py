@@ -9,7 +9,7 @@ import time
 import logging
 from pandas import DataFrame
 from scrapers.scraper_constants import ScraperConstants as sc
-from utils.s3_utils import save_data_to_s3_bucket_as_csv, rename_file_in_s3
+from utils.s3_utils import save_data_to_s3_bucket_as_csv, rename_file_in_s3, is_running_in_aws
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -268,11 +268,19 @@ if __name__ == '__main__':
     Scrape the data in the match report within date range specified
     """
     # Create boto3 session
-    session = boto3.Session(profile_name=sc.PROFILE_NAME)
+    # Get env variable:
+    env = is_running_in_aws()
+
+    # Create boto3 session
+    if env == "local":
+        session = boto3.Session(profile_name=sc.PROFILE_NAME)
+    else:
+        session = boto3.Session()
 
     # Initialize S3 client
     s3 = session.client('s3')
 
     args = sys.argv
 
-    season_df = scrape_data_in_date_range(2022)
+    # season_df = scrape_data_in_date_range(2022)
+    print("Hello fbref!")
