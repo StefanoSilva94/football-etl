@@ -8,3 +8,4 @@ terraform/.terraform/
 node_modules
 *.log
 .env
+tests/

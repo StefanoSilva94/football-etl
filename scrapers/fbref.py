@@ -361,9 +361,9 @@ if __name__ == '__main__':
     season, start_date = get_last_updated_data(s3)
 
     # Scrape the data withing the specified range
-    season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date, end_date="2024-08-20")
+    season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date)
 
     # Write the data to csv
-    add_scraped_data_to_season_csv(s3, 2024, season_df)
+    add_scraped_data_to_season_csv(s3, season, season_df)
 
 
