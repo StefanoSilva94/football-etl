@@ -10,4 +10,5 @@ class ScraperConstants(object):
 
     # fbref.com
     FBREF_URL = "https://fbref.com/en/comps/9/{year}-{next_year}/schedule/{year}-{next_year}-Premier-League-Scores-and-Fixtures"
-    FBREF_DATA_S3_FILE_KEY = "raw/fbref_data/{start_date}_{end_date}.csv"
+    FBREF_DATA_S3_FILE_KEY = "raw/fbref_data/{season_start}-{season_end}.csv"
+    FBREF_RAW_METADATA_FILE_KEY = "raw/fbref_data/last_updated.json"

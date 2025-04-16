@@ -1,7 +1,8 @@
-from datetime import datetime
-import sys
-
+from datetime import datetime, timedelta
+import io
+import json
 import boto3
+import botocore
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -9,7 +10,9 @@ import time
 import logging
 from pandas import DataFrame
 from scrapers.scraper_constants import ScraperConstants as sc
-from utils.s3_utils import save_data_to_s3_bucket_as_csv, rename_file_in_s3, is_running_in_aws
+from utils.s3_utils import save_data_to_s3_bucket_as_csv, is_running_in_aws
+from botocore.exceptions import ClientError
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -181,7 +184,9 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
     logger.info(f"Starting scraper for season: {season} - {season + 1}")
     season_url = sc.FBREF_URL.format(year=season, next_year=season+1)
     df = pd.DataFrame()
-    date_str = ""
+
+    # Default previous date to the start date
+    prev_date = start_date
     try:
         time.sleep(5)
         response = requests.get(season_url)
@@ -223,7 +228,7 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                 if start_date and match_date < datetime.strptime(start_date, "%Y-%m-%d"):
                     continue
                 if end_date and match_date > datetime.strptime(end_date, "%Y-%m-%d"):
-                    continue
+                    break
 
                 time.sleep(5)
                 match_df = scrape_match_report_data(match_url)
@@ -246,19 +251,92 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                 all_matches.append(match_df)
                 logger.info(f"Updated match dataframe {count}")
                 count += 1
+                prev_date = date_str
 
             except Exception as e:
                 logging.error(f"⚠️ Error processing row: {e}")
                 continue
         all_matches_df = pd.concat(all_matches, ignore_index=True) if all_matches else df
-        save_data_to_s3_bucket_as_csv(s3, all_matches_df,  sc.S3_BUCKET_NAME, sc.FBREF_DATA_S3_FILE_KEY, start_date=start_date, end_date=date_str)
 
-        return pd.concat(all_matches, ignore_index=True) if all_matches else df
+        return [all_matches_df, prev_date]
 
     except requests.exceptions.RequestException as e:
         logging.error(f"❌ Failed to access season page: {e}")
         return df
 
+
+def get_last_updated_data(s3_client):
+    """
+     Extract the last updated metadata from the json file stored in S3 bucket
+     Gets the season and casts to int
+     Gets the last_updated string, converts it to a date, adds 1 day, then converts it to a string
+    :return: [season, start_date]
+    """
+    # Read JSON from the S3 bucket
+    response = s3_client.get_object(Bucket=sc.S3_BUCKET_NAME, Key=sc.FBREF_RAW_METADATA_FILE_KEY)
+    data = json.load(response["Body"])
+    season_year = data["season"]
+
+    # Increment the date by 1, convert it to a date, add a day and then cast it to a string
+    last_updated_str = data["last_updated"]
+    last_updated_date = datetime.strptime(last_updated_str, "%Y-%m-%d")
+    last_updated_date += timedelta(days=1)
+    start_str = datetime.strftime(last_updated_date, "%Y-%m-%d")
+
+    return [season_year, start_str]
+
+
+def set_last_updated_data(s3_client, season_year: int, end_date):
+    """
+    Updates the last updated metadata into the S3 json file
+    :param end_date: the date of the most recent game scraped
+    :param season_year: start year of the season
+    :param s3_client: s3 client instance
+    """
+    # Dump metadata into json
+    data = {
+        "season": season_year,
+        "last_updated": end_date
+    }
+
+    json_data = json.dumps(data)
+
+    s3_client.put_object(
+        Bucket=sc.S3_BUCKET_NAME,
+        Key=sc.FBREF_RAW_METADATA_FILE_KEY,
+        Body=json_data
+    )
+
+def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.DataFrame):
+    """
+    This will take the scraped data in a pandas dataframe and upload it to the corresponding season file in S3
+    If the file exists it will read the file into a pandas dataframe and concat it with scraped_df.
+    If the file doesn't exist then it will
+    :param s3_client: s3 client instance
+    :param season_year: YYYY - the starting year of the season
+    :param scraped_df: The scraped data due to be added to the dataframe
+    :return: Write the newly scraped data to the season file in S3 bucket
+    """
+    file_key = sc.FBREF_DATA_S3_FILE_KEY.format(season_start=str(season_year), season_end=str(season_year + 1))
+
+    # See if the file exists already
+    try:
+        # get data from S3 bucket
+        data = s3_client.get_object(Bucket=sc.S3_BUCKET_NAME, Key=file_key)
+
+        # Load the data into pandas dataframe
+        df = pd.read_csv(io.BytesIO(data['Body'].read()))
+        logger.info(f"Season: {season_year} - {season_year + 1} located successfully")
+    except ClientError as e:
+        logger.info(f"File does not exist, creating new file: {file_key}")
+        df = pd.DataFrame()
+
+    updated_df = pd.concat([df, scraped_df], ignore_index=True)
+
+    save_data_to_s3_bucket_as_csv(s3, updated_df, bucket=sc.S3_BUCKET_NAME, key=sc.FBREF_DATA_S3_FILE_KEY,
+                                  season_start=str(season_year), season_end=str(season_year + 1))
+
+    set_last_updated_data(s3_client, season_year, last_match_date)
 
 
 
@@ -267,7 +345,7 @@ if __name__ == '__main__':
     """
     Scrape the data in the match report within date range specified
     """
-    # Create boto3 session
+    print("Hello fbref!")
     # Get env variable:
     env = is_running_in_aws()
 
@@ -280,7 +358,12 @@ if __name__ == '__main__':
     # Initialize S3 client
     s3 = session.client('s3')
 
-    args = sys.argv
+    season, start_date = get_last_updated_data(s3)
 
-    # season_df = scrape_data_in_date_range(2022)
-    print("Hello fbref!")
+    # Scrape the data withing the specified range
+    season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date, end_date="2024-08-20")
+
+    # Write the data to csv
+    add_scraped_data_to_season_csv(s3, 2024, season_df)
+
+
