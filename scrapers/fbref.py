@@ -2,7 +2,6 @@ from datetime import datetime, timedelta
 import io
 import json
 import boto3
-import botocore
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
@@ -12,6 +11,7 @@ from pandas import DataFrame
 from scrapers.scraper_constants import ScraperConstants as sc
 from utils.s3_utils import save_data_to_s3_bucket_as_csv, is_running_in_aws
 from botocore.exceptions import ClientError
+from utils.arguments_utils import get_fbref_arguments
 
 
 logging.basicConfig(level=logging.INFO)
@@ -359,9 +359,20 @@ if __name__ == '__main__':
     s3 = session.client('s3')
 
     season, start_date = get_last_updated_data(s3)
+    end_date = None
+
+    # Check if any arguments are passed via command line
+    args = get_fbref_arguments()
+    if args.season:
+        season = args.season
+    if args.start_date:
+        start_date = args.start_date
+    if args.end_date:
+        end_date = args.end_date
+
 
     # Scrape the data withing the specified range
-    season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date)
+    season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date, end_date=end_date)
 
     # Write the data to csv
     add_scraped_data_to_season_csv(s3, season, season_df)
