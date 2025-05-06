@@ -175,8 +175,10 @@ def update_dataframe_with_watermark_columns(row, match_df, columns):
 def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
     """
     This will scrape all data on the fbref scores and fixtures section for a premier league season.
+    It will filter for match reports that fall in the range start_date to end_date (inclusive) and it will break the
+    loop when it reaches upcoming fixtures (e.g 'Head-to-Head' is shown instead of 'Match Report'
     It will scrape all data within each match report and save it as a csv file to an S3 bucket
-    :param season: Season to scrape data from
+    :param season: Season to scrape data from (YYYY)
     :param start_date: start date to scrape data from (inclusive) (In the format YYYY-MM-DD)
     :param end_date: end date t0 scrape data from (inclusive) (In the format YYYY-MM-DD)
     :return:
@@ -205,7 +207,6 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
         count = 1
         for row in match_rows:
             try:
-                logger.info(f"Starting scraper for row: {count}")
                 # Extract date and match url
                 date_str = row.find("td", {"data-stat": "date"}).get_text(strip=True)
 
@@ -214,6 +215,7 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                     start_date = date_str
 
                 match_report_link = row.find("td", {"data-stat": "match_report"}).find("a")
+                match_report_text = match_report_link.get_text() if match_report_link else None
 
                 # Skip if no match report available
                 if not match_report_link:
@@ -228,7 +230,16 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                 if start_date and match_date < datetime.strptime(start_date, "%Y-%m-%d"):
                     continue
                 if end_date and match_date > datetime.strptime(end_date, "%Y-%m-%d"):
+                    logger.info(f"Match report date: {match_date} exceeds specified end date: {end_date}")
+                    logger.info("Terminating scraper")
                     break
+                if match_report_text == "Head-to-Head":
+                    logger.info("Match report is not available for the current match")
+                    logger.info("Terminating scraper")
+                    break
+
+                # Start counting rows from the first match report with a valid date
+                logger.info(f"Starting scraper for row: {count}")
 
                 time.sleep(5)
                 match_df = scrape_match_report_data(match_url)
@@ -307,14 +318,20 @@ def set_last_updated_data(s3_client, season_year: int, end_date):
         Body=json_data
     )
 
-def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.DataFrame):
+    logger.info(f"✅ Updated seasons: {season_year}, last updated value = {end_date} in the FBREF meta data file")
+
+
+def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.DataFrame, update_metadata=True):
     """
     This will take the scraped data in a pandas dataframe and upload it to the corresponding season file in S3
     If the file exists it will read the file into a pandas dataframe and concat it with scraped_df.
     If the file doesn't exist then it will
+
     :param s3_client: s3 client instance
     :param season_year: YYYY - the starting year of the season
     :param scraped_df: The scraped data due to be added to the dataframe
+    :param update_metadata: A boolean flag indicating whether to update the metadata file.
+    It should be True for automated scheduling and False for manual runs
     :return: Write the newly scraped data to the season file in S3 bucket
     """
     file_key = sc.FBREF_DATA_S3_FILE_KEY.format(season_start=str(season_year), season_end=str(season_year + 1))
@@ -336,7 +353,8 @@ def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.Da
     save_data_to_s3_bucket_as_csv(s3, updated_df, bucket=sc.S3_BUCKET_NAME, key=sc.FBREF_DATA_S3_FILE_KEY,
                                   season_start=str(season_year), season_end=str(season_year + 1))
 
-    set_last_updated_data(s3_client, season_year, last_match_date)
+    if update_metadata:
+        set_last_updated_data(s3_client, season_year, last_match_date)
 
 
 
@@ -344,6 +362,10 @@ if __name__ == '__main__':
 
     """
     Scrape the data in the match report within date range specified
+    1) Check if the code is being run locally or via AWS console
+    2) Extracts the last updated value from the config file in s3 and starts from the next day
+    3) Scrapes all match data from start date for all available fixtures (or until specified end date)
+    4) Updates CSV in S3 with the latest data
     """
     print("Hello fbref!")
     # Get env variable:
@@ -370,11 +392,12 @@ if __name__ == '__main__':
     if args.end_date:
         end_date = args.end_date
 
+    metadata_flag = not(args.season or args.start_date or args.end_date)
 
     # Scrape the data withing the specified range
     season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date, end_date=end_date)
 
     # Write the data to csv
-    add_scraped_data_to_season_csv(s3, season, season_df)
+    add_scraped_data_to_season_csv(s3, season, season_df, update_metadata=metadata_flag)
 
 
