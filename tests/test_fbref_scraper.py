@@ -9,7 +9,7 @@ import os
 from schemas.pandas_schemas import FbRefSchema
 
 @pytest.fixture
-def sample_html():
+def new_vs_for_html():
     """Reads the test HTML file and returns its content as a string."""
     print("Current working directory:", os.getcwd())
     file_path = "tests/test_files/new_vs_nott_for_22_23.html"
@@ -18,19 +18,22 @@ def sample_html():
     return html_content
 
 @pytest.fixture
-def mock_request(sample_html):
+def mock_new_vs_for_match_report(new_vs_for_html):
     """Mock the requests.get response to return sample HTML.
     response = requests.get(match_url)"""
     with patch("requests.get") as mock_get:
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.raise_for_status.return_value = None
-        mock_response.content = sample_html.encode("utf-8")  # Encode as bytes
+        mock_response.content = new_vs_for_html.encode("utf-8")  # Encode as bytes
         mock_get.return_value = mock_response
         yield mock_get
 
 
-def test_scrape_match_report_data(mock_request):
+def test_scrape_match_report_data(mock_new_vs_for_match_report):
+    """
+    Testing that the scraper correctly scrapes the data in the Newcastle vs Nottingham Forrest game
+    """
     fbRefSchema = FbRefSchema()
 
     result_df = scrape_match_report_data("dummy_url")
@@ -60,3 +63,20 @@ def test_scrape_match_report_data(mock_request):
 
     # Reset the index of both dataframes to ensure they have a consistent range-based index
     assert_frame_equal(result_df, exp_df, check_dtype=False, check_like=True)
+
+
+def test_scraper_filters_by_date(mock_new_vs_for_match_report):
+    """
+    Specify a start_date, end_date and verify that the scraper only scrapes match reports in the specified range
+    :param mock_request:
+    :return:
+    """
+
+
+def test_scraper_updates_last_updated_value_correctly(mock_new_vs_for_match_report):
+    """
+    With a specified start date and no end date, verify that the scraper exits for games that have not been played yet
+    (no match report available) and that the last_updated value is correct
+    :param mock_request:
+    :return:
+    """
