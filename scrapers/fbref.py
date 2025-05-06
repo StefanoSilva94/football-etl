@@ -207,7 +207,6 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
         count = 1
         for row in match_rows:
             try:
-                logger.info(f"Starting scraper for row: {count}")
                 # Extract date and match url
                 date_str = row.find("td", {"data-stat": "date"}).get_text(strip=True)
 
@@ -238,6 +237,9 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                     logger.info("Match report is not available for the current match")
                     logger.info("Terminating scraper")
                     break
+
+                # Start counting rows from the first match report with a valid date
+                logger.info(f"Starting scraper for row: {count}")
 
                 time.sleep(5)
                 match_df = scrape_match_report_data(match_url)
@@ -319,14 +321,17 @@ def set_last_updated_data(s3_client, season_year: int, end_date):
     logger.info(f"✅ Updated seasons: {season_year}, last updated value = {end_date} in the FBREF meta data file")
 
 
-def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.DataFrame):
+def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.DataFrame, update_metadata=True):
     """
     This will take the scraped data in a pandas dataframe and upload it to the corresponding season file in S3
     If the file exists it will read the file into a pandas dataframe and concat it with scraped_df.
     If the file doesn't exist then it will
+
     :param s3_client: s3 client instance
     :param season_year: YYYY - the starting year of the season
     :param scraped_df: The scraped data due to be added to the dataframe
+    :param update_metadata: A boolean flag indicating whether to update the metadata file.
+    It should be True for automated scheduling and False for manual runs
     :return: Write the newly scraped data to the season file in S3 bucket
     """
     file_key = sc.FBREF_DATA_S3_FILE_KEY.format(season_start=str(season_year), season_end=str(season_year + 1))
@@ -348,7 +353,8 @@ def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.Da
     save_data_to_s3_bucket_as_csv(s3, updated_df, bucket=sc.S3_BUCKET_NAME, key=sc.FBREF_DATA_S3_FILE_KEY,
                                   season_start=str(season_year), season_end=str(season_year + 1))
 
-    set_last_updated_data(s3_client, season_year, last_match_date)
+    if update_metadata:
+        set_last_updated_data(s3_client, season_year, last_match_date)
 
 
 
@@ -386,11 +392,12 @@ if __name__ == '__main__':
     if args.end_date:
         end_date = args.end_date
 
+    metadata_flag = not(args.season or args.start_date or args.end_date)
 
     # Scrape the data withing the specified range
     season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date, end_date=end_date)
 
     # Write the data to csv
-    add_scraped_data_to_season_csv(s3, season, season_df)
+    add_scraped_data_to_season_csv(s3, season, season_df, update_metadata=metadata_flag)
 
 
