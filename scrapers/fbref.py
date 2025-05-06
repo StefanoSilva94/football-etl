@@ -178,7 +178,7 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
     It will filter for match reports that fall in the range start_date to end_date (inclusive) and it will break the
     loop when it reaches upcoming fixtures (e.g 'Head-to-Head' is shown instead of 'Match Report'
     It will scrape all data within each match report and save it as a csv file to an S3 bucket
-    :param season: Season to scrape data from
+    :param season: Season to scrape data from (YYYY)
     :param start_date: start date to scrape data from (inclusive) (In the format YYYY-MM-DD)
     :param end_date: end date t0 scrape data from (inclusive) (In the format YYYY-MM-DD)
     :return:
@@ -216,7 +216,7 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
                     start_date = date_str
 
                 match_report_link = row.find("td", {"data-stat": "match_report"}).find("a")
-                match_report_text = match_report_link.get_text()
+                match_report_text = match_report_link.get_text() if match_report_link else None
 
                 # Skip if no match report available
                 if not match_report_link:
