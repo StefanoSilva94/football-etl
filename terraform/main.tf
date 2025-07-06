@@ -127,3 +127,19 @@ resource "aws_ecs_task_definition" "fbref_scraper_task" {
     operating_system_family = "LINUX"
   }
 }
+
+resource "aws_dynamodb_table" "terraform_locks" {
+  name           = "terraform-locks"
+  billing_mode   = "PAY_PER_REQUEST"
+  hash_key       = "LockID"                        # Required by Terraform - attribute to use as a partition (hash) key
+
+  attribute {
+    name = "LockID"
+    type = "S"
+  }
+
+  tags = {
+    Environment = "dev"
+    Purpose     = "Terraform State Locking"
+  }
+}
