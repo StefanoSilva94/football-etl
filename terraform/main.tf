@@ -8,6 +8,8 @@ resource "aws_s3_bucket" "raw_football_data" {
   force_destroy = true
 }
 
+
+
 resource "random_string" "suffix" {
   length  = 6
   special = false
@@ -125,6 +127,19 @@ resource "aws_ecs_task_definition" "fbref_scraper_task" {
   runtime_platform {
     cpu_architecture        = "X86_64"
     operating_system_family = "LINUX"
+  }
+}
+
+# Backend setup
+resource "aws_s3_bucket" "tf_backend" {
+  bucket = "terraform-backend-football-etl"
+}
+
+resource "aws_s3_bucket_versioning" "versioning" {
+  bucket = aws_s3_bucket.tf_backend.id
+
+  versioning_configuration {
+    status = "Enabled"
   }
 }
 
