@@ -3,7 +3,7 @@ from botocore.exceptions import ClientError
 from io import StringIO
 import os
 
-# Set up logger
+# Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
