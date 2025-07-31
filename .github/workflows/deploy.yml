@@ -26,6 +26,30 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
+      - name: Delete all images from ECR repository
+        env:
+          AWS_REGION: eu-west-2
+          ECR_REPOSITORY: football-etl-repo
+        run: |
+          # Get all image digests (tagged and untagged)
+          image_ids=$(aws ecr list-images \
+            --repository-name $ECR_REPOSITORY \
+            --region $AWS_REGION \
+            --query 'imageIds' \
+            --output json)
+
+          echo "Images to delete: $image_ids"
+
+          if [ "$image_ids" != "[]" ]; then
+            aws ecr batch-delete-image \
+              --repository-name $ECR_REPOSITORY \
+              --region $AWS_REGION \
+              --image-ids "$image_ids"
+            echo "All images deleted."
+          else
+            echo "No images found to delete."
+          fi
+
       - name: Build and push Docker image to ECR
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
@@ -34,31 +58,10 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64 \
+            --tag $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG} \
             --tag $ECR_REGISTRY/$ECR_REPOSITORY:latest \
             --push .
-
-      - name: Cleanup old Docker images tagged 'latest'
-        env:
-          AWS_REGION: eu-west-2
-          ECR_REPOSITORY: football-etl-repo
-        run: |
-          # Get image digests with tag 'latest'
-          images_to_delete=$(aws ecr list-images \
-            --repository-name $ECR_REPOSITORY \
-            --region $AWS_REGION \
-            --filter "tagStatus=TAGGED" \
-            --query 'imageIds[?contains(imageTag, `latest`)]' \
-            --output json)
-      
-          echo "Images to delete: $images_to_delete"
-      
-          if [ "$images_to_delete" != "[]" ]; then
-            aws ecr batch-delete-image \
-              --repository-name $ECR_REPOSITORY \
-              --region $AWS_REGION \
-              --image-ids "$images_to_delete"
-            echo "Deleted images tagged 'latest'."
-          else
-            echo "No images tagged 'latest' found to delete."
-          fi
-
+          
+          echo "✅ Successfully pushed Docker image:"
+          echo "  - $ECR_REGISTRY/$ECR_REPOSITORY:${IMAGE_TAG}"
+          echo "  - $ECR_REGISTRY/$ECR_REPOSITORY:latest"
