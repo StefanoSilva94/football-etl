@@ -35,11 +35,11 @@ RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub \
 RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') && \
     CHROME_MAJOR_VERSION=${CHROME_VERSION%%.*} && \
     wget -q -O /tmp/chromedriver.zip \
-      "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/${CHROME_MAJOR_VERSION}.0.0.0/linux64/chromedriver-linux64.zip" && \
-    unzip /tmp/chromedriver.zip -d /tmp/ && \
-    mv /tmp/chromedriver-linux64/chromedriver /usr/local/bin/chromedriver && \
+      "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/LATEST_RELEASE_${CHROME_MAJOR_VERSION}/linux64/chromedriver-linux64.zip" && \
+    unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
     chmod +x /usr/local/bin/chromedriver && \
     rm -rf /tmp/chromedriver*
+
 
 # Copy project files
 COPY . /app/
