@@ -3,7 +3,7 @@ FROM python:3.9-slim
 # Set a working directory
 WORKDIR /app
 
-# Install required packages: tools (wget, unzip, gnupg) + Chrome runtime dependencies
+# Install dependencies for Chrome + Selenium
 RUN apt-get update && apt-get install -y \
     wget \
     unzip \
@@ -24,22 +24,16 @@ RUN apt-get update && apt-get install -y \
     xdg-utils \
     --no-install-recommends && rm -rf /var/lib/apt/lists/*
 
-# Add Google’s signing key + repository for Chrome
-RUN wget -q -O - https://dl.google.com/linux/linux_signing_key.pub \
-    | gpg --dearmor -o /usr/share/keyrings/google-chrome.gpg && \
-    echo "deb [arch=amd64 signed-by=/usr/share/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
-    > /etc/apt/sources.list.d/google-chrome.list && \
-    apt-get update && apt-get install -y google-chrome-stable && rm -rf /var/lib/apt/lists/*
+# Install Google Chrome (hardcoded version)
+RUN wget -q -O /tmp/google-chrome.deb https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_116.0.5845.96-1_amd64.deb && \
+    apt-get update && apt-get install -y /tmp/google-chrome.deb && \
+    rm -rf /tmp/google-chrome.deb /var/lib/apt/lists/*
 
-# Install ChromeDriver matching the installed Chrome version
-RUN CHROME_VERSION=$(google-chrome --version | awk '{print $3}') && \
-    CHROME_MAJOR_VERSION=${CHROME_VERSION%%.*} && \
-    wget -q -O /tmp/chromedriver.zip \
-      "https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/LATEST_RELEASE_${CHROME_MAJOR_VERSION}/linux64/chromedriver-linux64.zip" && \
+# Install ChromeDriver (matching Chrome version)
+RUN wget -q -O /tmp/chromedriver.zip https://edgedl.me.gvt1.com/edgedl/chrome/chrome-for-testing/116.0.5845.96/linux64/chromedriver-linux64.zip && \
     unzip /tmp/chromedriver.zip -d /usr/local/bin/ && \
     chmod +x /usr/local/bin/chromedriver && \
-    rm -rf /tmp/chromedriver*
-
+    rm -rf /tmp/chromedriver.zip
 
 # Copy project files
 COPY . /app/
