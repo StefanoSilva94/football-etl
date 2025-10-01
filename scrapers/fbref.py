@@ -12,7 +12,43 @@ from scrapers.scraper_constants import ScraperConstants as sc
 from utils.s3_utils import save_data_to_s3_bucket_as_csv, is_running_in_aws
 from botocore.exceptions import ClientError
 from utils.arguments_utils import get_fbref_arguments
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 
+
+
+def get_soup_object(url):
+    """
+    Tries to create a beautiful soup object usoing requests - if a non 200 response code is generated it will attempt
+    to use headless selenium
+    :param url: The url to create the soup object
+    :return: Beautiful Soup object
+    """
+
+    try:
+        response = requests.get(url)
+        if response.status_code == 200:
+            return BeautifulSoup(response.content, 'html.parser')
+        else:
+            chrome_options = Options()
+            chrome_options.add_argument("--headless")  # keep it headless if you want
+            chrome_options.add_argument("--disable-gpu")
+            chrome_options.add_argument("--no-sandbox")
+            chrome_options.add_argument("--disable-dev-shm-usage")
+            chrome_options.add_argument("--window-size=1920,1080")
+            chrome_options.add_argument("start-maximized")
+            chrome_options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                        "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                        "Chrome/116.0.5845.96 Safari/537.36")
+            driver = webdriver.Chrome(options=chrome_options)
+            driver.get(url)
+
+            html = driver.page_source
+            driver.quit()
+
+            return BeautifulSoup(html, "html.parser")
+    except requests.exceptions.RequestException:
+        logger.error("Unable to load data")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -117,15 +153,17 @@ def scrape_match_report_data(match_url: str) -> DataFrame:
     """
     df = pd.DataFrame()
     try:
-        response = requests.get(match_url)
-        if response.status_code != 200:
-            time.sleep(300)
-            response = requests.get(match_url)
+
+        soup = get_soup_object(match_url)
+        # response = requests.get(match_url)
+        # if response.status_code != 200:
+        #     time.sleep(300)
+        #     response = requests.get(match_url)
 
         # Raise error if not 200 status code
-        response.raise_for_status()
-
-        soup = BeautifulSoup(response.content, 'html.parser')
+        # response.raise_for_status()
+        #
+        # soup = BeautifulSoup(response.content, 'html.parser')
 
         # First extract home team, away team, game week and date
         home_team, away_team = get_team_name_from_match_report(soup)
@@ -191,8 +229,10 @@ def scrape_data_in_date_range(season: int, start_date=None, end_date=None):
     prev_date = start_date
     try:
         time.sleep(5)
-        response = requests.get(season_url)
-        soup = BeautifulSoup(response.content, 'html.parser')
+
+        soup = get_soup_object(season_url)
+        # response = requests.get(season_url)
+        # soup = BeautifulSoup(response.content, 'html.parser')
 
         # Find the match table
         table_header = soup.find("h2")
@@ -393,11 +433,8 @@ if __name__ == '__main__':
         end_date = args.end_date
 
     metadata_flag = not(args.season or args.start_date or args.end_date)
-
     # Scrape the data withing the specified range
     season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date, end_date=end_date)
 
     # Write the data to csv
     add_scraped_data_to_season_csv(s3, season, season_df, update_metadata=metadata_flag)
-
-
