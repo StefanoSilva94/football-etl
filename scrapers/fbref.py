@@ -9,7 +9,7 @@ import time
 import logging
 from pandas import DataFrame
 from scrapers.scraper_constants import ScraperConstants as sc
-from utils.s3_utils import save_data_to_s3_bucket_as_csv, is_running_in_aws
+from utils.s3_utils import save_pandas_df_to_s3_bucket, is_running_in_aws
 from botocore.exceptions import ClientError
 from utils.arguments_utils import get_fbref_arguments
 from selenium import webdriver
@@ -360,6 +360,44 @@ def set_last_updated_data(s3_client, season_year: int, end_date):
 
     logger.info(f"✅ Updated seasons: {season_year}, last updated value = {end_date} in the FBREF meta data file")
 
+def add_scraped_data_to_gw_as_parquet(s3_client, season_year:int, scraped_df: pd.DataFrame):
+    """
+    This will take the scraped pandas dataframe and upload it into parquet files partitioned by season, gameweek, run_id
+    :param s3_client: s3 client instance
+    :param season_year: YYYY - the starting year of the season
+    :param scraped_df: The scraped data due to be added to the dataframe
+    It should be True for automated scheduling and False for manual runs
+    :return: Write the newly scraped data to the season file in S3 bucket
+    """
+    run_id = datetime.now().strftime("%Y%m%d%H%M")
+    for gw, gw_df in scraped_df.groupby("gameweek"):
+
+        run_prefix = (
+            f"raw/fbref_data/"
+            f"season={season_year}-{season_year + 1}/"
+            f"gameweek={gw}/"
+            f"run_id={run_id}/"
+        )
+
+        parquet_key = f"{run_prefix}players.parquet"
+        success_key = f"{run_prefix}_SUCCESS"
+
+        logger.info(f"Writing parquet for GW {gw}, run_id {run_id}")
+
+        save_pandas_df_to_s3_bucket(
+            s3_client,
+            gw_df,
+            "parquet",
+            bucket=sc.S3_BUCKET_NAME,
+            key=parquet_key
+        )
+
+        # Write _SUCCESS marker
+        s3_client.put_object(
+            Bucket=sc.S3_BUCKET_NAME,
+            Key=success_key,
+            Body=b""
+        )
 
 def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.DataFrame, update_metadata=True):
     """
@@ -390,8 +428,8 @@ def add_scraped_data_to_season_csv(s3_client, season_year:int, scraped_df: pd.Da
 
     updated_df = pd.concat([df, scraped_df], ignore_index=True)
 
-    save_data_to_s3_bucket_as_csv(s3, updated_df, bucket=sc.S3_BUCKET_NAME, key=sc.FBREF_DATA_S3_FILE_KEY,
-                                  season_start=str(season_year), season_end=str(season_year + 1))
+    save_pandas_df_to_s3_bucket(s3, updated_df, file_type="csv", bucket=sc.S3_BUCKET_NAME, key=sc.FBREF_DATA_S3_FILE_KEY,
+                                season_start=str(season_year), season_end=str(season_year + 1))
 
     if update_metadata:
         set_last_updated_data(s3_client, season_year, last_match_date)
@@ -436,5 +474,8 @@ if __name__ == '__main__':
     # Scrape the data withing the specified range
     season_df, last_match_date = scrape_data_in_date_range(season, start_date=start_date, end_date=end_date)
 
+    add_scraped_data_to_gw_as_parquet(s3, season, season_df)
+
     # Write the data to csv
     add_scraped_data_to_season_csv(s3, season, season_df, update_metadata=metadata_flag)
+

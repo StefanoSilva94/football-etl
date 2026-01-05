@@ -1,6 +1,6 @@
 import logging
 from botocore.exceptions import ClientError
-from io import StringIO
+from io import StringIO, BytesIO
 import os
 
 # Set up logging
@@ -44,29 +44,31 @@ def does_file_exist_in_s3(s3_client, bucket: str, key: str) -> bool:
         return False
 
 
-def save_data_to_s3_bucket_as_csv(s3_client, df,  bucket: str, key: str, **kwargs):
+def save_pandas_df_to_s3_bucket(s3_client, df, file_type, bucket: str, key: str, **kwargs):
     """
-    Uploads a Pandas DataFrame to an S3 bucket as a CSV file.
+    Uploads a Pandas DataFrame to an S3 bucket as CSV or Parquet.
 
     :param s3_client: Boto3 S3 client
-    :param df: Pandas dataframe to upload as a csv
+    :param df: Pandas DataFrame to upload
+    :param file_type: "csv" or "parquet" (defaults to parquet)
     :param bucket: Name of the S3 bucket
     :param key: S3 object key with placeholders (e.g., "data/{season}/matches.csv")
-    :param kwargs: Additional formatting arguments for the key (e.g., season="2024-25")
+    :param kwargs: Formatting arguments for the key (e.g., season="2024-25")
     """
-
-    # Store csv in memory buffer
-    csv_buffer = StringIO()
-    df.to_csv(csv_buffer, index=False)
-
-    # Store in S3
-    s3_client.put_object(
-        Bucket=bucket,
-        Key=key.format(**kwargs),
-        Body=csv_buffer.getvalue(),
-        ContentType="text/csv"
-    )
     formatted_key = key.format(**kwargs)
+
+    if file_type.lower() == "csv":
+        buffer = StringIO()
+        df.to_csv(buffer, index=False)
+        content_type = "text/csv"
+        body = buffer.getvalue()
+    else:
+        buffer = BytesIO()
+        df.to_parquet(buffer, engine="fastparquet", index=False, compression="snappy")
+        content_type = "application/octet-stream"
+        body = buffer.getvalue()
+
+    s3_client.put_object(Bucket=bucket, Key=formatted_key, Body=body, ContentType=content_type)
     logger.info(f"✅ File successfully uploaded to s3://{bucket}/{formatted_key}")
 
 
